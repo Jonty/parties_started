@@ -8,7 +8,9 @@ import sys
 import tweepy
 import pickle
 import io
+import collections
 from PIL import Image
+
 
 def get_parties():
     site = "https://www.electoralcommission.org.uk/who-we-are-and-what-we-do/party-registration-applications/view-current-applications"
@@ -18,7 +20,7 @@ def get_parties():
 
     parties = []
 
-    content_nodes = root.xpath("//div[@class=\"c-accordion\"]")
+    content_nodes = root.xpath('//div[@class="c-accordion"]')
     for node in content_nodes:
         name = None
         area = None
@@ -53,39 +55,45 @@ def get_parties():
             if description.lower() != name.lower():
                 descriptions.append(description)
 
-        emblems = list(set(
-            "https://www.electoralcommission.org.uk" + img.attrib.get("srcset", img.attrib.get("data-srcset")).split(" ")[0]
-            for img in node.xpath(".//img")
-        ))
+        emblems = collections.OrderedDict()
+        for img in node.xpath(".//img"):
+            url = (
+                "https://www.electoralcommission.org.uk"
+                + img.attrib.get("srcset", img.attrib.get("data-srcset")).split(" ")[0]
+            )
+            emblems[url] = {"url": url, "description": img.attrib.get("alt").strip()}
 
-        parties.append({
-            "name": name,
-            "old_name": old_name,
-            "area": area,
-            "descriptions": descriptions,
-            "emblems": emblems,
-            "new_party": new_party
-        })
+        parties.append(
+            {
+                "name": name,
+                "old_name": old_name,
+                "area": area,
+                "descriptions": descriptions,
+                "emblems": list(emblems.values()),
+                "new_party": new_party,
+            }
+        )
 
     return parties
 
 
 PICKLEFILE = "partiesstarted.dat"
 
-CONSUMER_KEY    = "XXXXX" # Twitter key
-CONSUMER_SECRET = "XXXXX" # Twitter secret
+CONSUMER_KEY = "XXXXX"  # Twitter key
+CONSUMER_SECRET = "XXXXX"  # Twitter secret
 
 auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
 
 try:
     data = pickle.load(open(PICKLEFILE, "rb"))
 except IOError:
-    data = {
-        "last-modified": ""
-    }
+    data = {"last-modified": ""}
 
 if "token" not in data:
-    print("\nOpen this URL and, then input the PIN you are given.\n\n\t%s\n" % auth.get_authorization_url())
+    print(
+        "\nOpen this URL and, then input the PIN you are given.\n\n\t%s\n"
+        % auth.get_authorization_url()
+    )
     pin = input("PIN: ").strip()
 
     token = auth.get_access_token(verifier=pin)
@@ -100,10 +108,11 @@ parties = get_parties()
 for party in reversed(parties):
 
     if not party["new_party"] and not party["old_name"]:
-        print("Skipping '%s': Not new or changed" % party["name"])
+        print("Skipping '%s': Not new or changed name" % party["name"])
         continue
 
     if party["name"] in data["tweeted"]:
+        print("Skipping '%s': Already tweeted" % party["name"])
         continue
 
     data["tweeted"].append(party["name"])
@@ -119,7 +128,7 @@ for party in reversed(parties):
         message += "\n\nAKA:"
 
         for description in party["descriptions"]:
-            new_message = message + "\n• \"%s\"" % description
+            new_message = message + '\n• "%s"' % description
             if len(new_message) < 220:
                 message = new_message
 
@@ -128,30 +137,35 @@ for party in reversed(parties):
 
     media_ids = []
     for image in party["emblems"][:4]:
-        response = requests.get(image)
+        response = requests.get(image["url"])
 
-        source = Image.open(io.BytesIO(response.content)).convert('RGBA')
+        source = Image.open(io.BytesIO(response.content)).convert("RGBA")
 
         # If source is smaller than 150px, pad it out to 150
         min_size = 200
         if source.size[0] < min_size or source.size[1] < min_size:
             new_w = max([source.size[0], min_size])
             new_h = max([source.size[1], min_size])
-            new_im = Image.new('RGBA', (new_w, new_h))
-            new_im.paste(source, ((new_w-source.size[0])//2,
-                                (new_h-source.size[1])//2))
+            new_im = Image.new("RGBA", (new_w, new_h))
+            new_im.paste(
+                source, ((new_w - source.size[0]) // 2, (new_h - source.size[1]) // 2)
+            )
             source = new_im
 
         # Replace background with white
-        background = Image.new('RGBA', source.size, (255,255,255))
-        alpha_composite = Image.alpha_composite(background, source).convert('RGB')
+        background = Image.new("RGBA", source.size, (255, 255, 255))
+        alpha_composite = Image.alpha_composite(background, source).convert("RGB")
         output = io.BytesIO()
-        alpha_composite.save(output, 'JPEG', quality=100)
+        alpha_composite.save(output, "JPEG", quality=100)
 
-        upload = api.media_upload(image.split("/")[-1].split("?")[0], file=output)
+        upload = api.media_upload(
+            image["url"].split("/")[-1].split("?")[0], file=output
+        )
         media_ids.append(upload.media_id)
+        if image["description"]:
+            api.create_media_metadata(upload.media_id, image["description"])
 
     api.update_status(message, media_ids=media_ids)
 
-    print("Tweeted \"%s\"" % message)
+    print('Tweeted "%s"' % message)
     sys.exit(0)
