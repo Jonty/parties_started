@@ -47,7 +47,8 @@ def get_parties():
                     name = new_name
 
                 elif key == "part of the uk that this application applies to:":
-                    area = strong_node[0].tail.strip()
+                    if strong_node[0].tail:
+                        area = strong_node[0].tail.strip()
 
         descriptions = []
         for li in node.xpath(".//li"):
