@@ -32,12 +32,13 @@ def get_parties():
         old_name = None
 
         new_party = False
+        new_name = None
         p_nodes = node.xpath(".//div/p")
         for pnode in p_nodes:
             strong_node = pnode.xpath("strong")
             if strong_node:
                 key = strong_node[0].text.strip().lower()
-                if key == "proposed name:":
+                if key == "proposed name:" and not new_name:
                     new_name = strong_node[0].tail.strip()
                     if new_name == name:
                         new_party = True
