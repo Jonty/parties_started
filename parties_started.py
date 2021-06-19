@@ -39,13 +39,16 @@ def get_parties():
             if strong_node:
                 key = strong_node[0].text.strip().lower()
                 if key == "proposed name:" and not new_name:
-                    new_name = strong_node[0].tail.strip()
-                    if new_name == name:
-                        new_party = True
-                    else:
-                        old_name = name
+                    if strong_node[
+                        0
+                    ].tail:  # Occasionally they'll accidentally make this an <li> after "proposed name", skip it for now
+                        new_name = strong_node[0].tail.strip()
+                        if new_name == name:
+                            new_party = True
+                        else:
+                            old_name = name
 
-                    name = new_name
+                        name = new_name
 
                 elif key == "part of the uk that this application applies to:":
                     if strong_node[0].tail:
@@ -85,7 +88,6 @@ CONSUMER_KEY = "XXXXX"  # Twitter key
 CONSUMER_SECRET = "XXXXX"  # Twitter secret
 
 auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-
 try:
     data = pickle.load(open(PICKLEFILE, "rb"))
 except IOError:
