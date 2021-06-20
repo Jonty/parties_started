@@ -28,7 +28,7 @@ def get_parties():
         emblems = []
 
         h3_nodes = node.xpath(".//h3")
-        name = h3_nodes[0].text_content().strip()
+        name = h3_nodes[0].text_content().strip().replace("’", "'")
         old_name = None
 
         new_party = False
@@ -42,7 +42,7 @@ def get_parties():
                     if strong_node[
                         0
                     ].tail:  # Occasionally they'll accidentally make this an <li> after "proposed name", skip it for now
-                        new_name = strong_node[0].tail.strip()
+                        new_name = strong_node[0].tail.strip().replace("’", "'")
                         if new_name == name:
                             new_party = True
                         else:
