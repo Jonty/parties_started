@@ -38,7 +38,7 @@ def get_parties():
             strong_node = pnode.xpath("strong")
             if strong_node:
                 key = strong_node[0].text.strip().lower()
-                if key == "proposed name:" and not new_name:
+                if (key == "proposed name:" or key == "proposed name (in english):") and not new_name:
                     if strong_node[
                         0
                     ].tail:  # Occasionally they'll accidentally make this an <li> after "proposed name", skip it for now
